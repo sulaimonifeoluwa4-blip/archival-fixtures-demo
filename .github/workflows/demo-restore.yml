@@ -74,7 +74,7 @@ jobs:
           PASSPHRASE="Test SDF Network ; September 2015"
 
           [[ -n "${CONTRACT_ID:-}" ]] || { echo "::error::CONTRACT_ID is not set — pass it as a workflow input or set the CONTRACT_ID repository variable (see workflow header)"; exit 1; }
-          [[ -n "${THROWAWAY_KEY:-}" ]] || { echo "::error::TESTNET_THROWAWAY_SECRET_KEY secret is not set (see workflow header)"; exit 1; }
+          [[ -n "${THROWAWAY_KEY:-}" ]] || { echo "::error::TESTNET_THROWAWAY_SECRET_KEY is not set — add it at ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/settings/secrets/actions and re-run (see the workflow header for what to put in it)"; exit 1; }
           [[ "$THROWAWAY_KEY" == S* ]] || { echo "::error::TESTNET_THROWAWAY_SECRET_KEY does not look like a testnet secret key — this repo is TESTNET-ONLY"; exit 1; }
 
           echo "contract=$CONTRACT_ID entry=$ENTRY_KEY rpc=$RPC (TESTNET ONLY)"
@@ -97,11 +97,15 @@ jobs:
           fi
 
           # --- 2. Raise the TTL (no-op while it is already at/above the target). ---
+          # --send=yes: the CLI's default is `--send=default`, which only submits
+          # when the simulation reports ledger writes — an extend that the
+          # simulator reads as a no-op would be silently dropped here. This step
+          # must actually submit (same flag run-full-pipeline.sh passes).
           echo "extending entry to at least ${EXTEND_TO} ledgers..."
           stellar contract invoke \
               --id "$CONTRACT_ID" --source "$THROWAWAY_KEY" \
               --rpc-url "$RPC" --network-passphrase "$PASSPHRASE" \
-              -- extend --ledgers "$EXTEND_TO" >/dev/null
+              --send=yes -- extend --ledgers "$EXTEND_TO" >/dev/null
 
           # --- 3. Verify off-chain. ---
           FINAL_TTL="$(read_ttl)"
